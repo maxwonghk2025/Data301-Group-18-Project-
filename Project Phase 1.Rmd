@@ -1,0 +1,141 @@
+---
+title: "Project phase 1"
+author: "Group 18"
+date: "2025-08-27"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message = FALSE,warning = FALSE)
+```
+
+
+
+Which socio-economic and geographic factors best explain and potentially predict the disparities in food
+access between urban and rural communities in the United States
+
+# Exploratory Data Analysis
+```{r}
+rm(list=ls())
+library(openxlsx)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+# read the data of year 2019,2015 and 2010
+df2019<-read.xlsx("data/FoodAccessResearchAtlasData2019.xlsx",sheet="Food Access Research Atlas")
+df2015<-read.xlsx("data/FoodAccessResearchAtlasData2015.xlsx",sheet="Food Access Research Atlas")
+df2010<-read.xlsx("data/FoodAccessResearchAtlasData2010.xlsx",sheet="Food Access Research Atlas")
+```
+
+To address the research question of "rural-urban disparities in food access," the exploratory data analysis can be conducted from several perspectives.
+
+First we conduct comparisons between different years (2010, 2015, and 2019) to examine whether urban-rural disparities are widening or improving.
+
+
+```{r}
+df19_sub<-df2019 %>% select(State,Urban,LILATracts_1And10,lasnap1share,PovertyRate,MedianFamilyIncome) %>% 
+  mutate(year="2019")
+df19_sub$lasnap1share<-as.numeric(df19_sub$lasnap1share)
+df19_sub$PovertyRate<-as.numeric(df19_sub$PovertyRate)
+df19_sub$MedianFamilyIncome<-as.numeric(df19_sub$MedianFamilyIncome)
+
+df15_sub<-df2015 %>% select(State,Urban,LILATracts_1And10,lasnap1share,MedianFamilyIncome) %>% 
+  mutate(year="2015")
+df10_sub<-df2010 %>% select(State,Urban,LILATracts_1And10) %>% 
+  mutate(year="2010")
+
+df_combine<-bind_rows(df19_sub,df15_sub,df10_sub)
+```
+
+
+```{r}
+
+
+urban_sumy<-df_combine %>% group_by(year,Urban) %>% 
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(year) %>%
+  mutate(proportion = round(count / sum(count),3)) %>%
+  ungroup()
+
+knitr::kable(urban_sumy,caption = "The count and propotion of urban classification in each year")
+
+```
+
+
+```{r fig.align="center"}
+ggplot(urban_sumy, aes(x = factor(year), y = proportion, fill = factor(Urban))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(caption = "Figure 1: Urban proportion by year",
+       x = "Year", y = "Proportion",
+       fill = "Urban (1=Urban, 0=Non-Urban)") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_minimal()
+
+```
+
+Table 1 and Figure 1 present the distribution of urban status across three years: 2010, 2015, and 2019. The variable Urban is coded as 0 for rural and 1 for urban. Both counts and proportions are reported. In 2010, there were 17,568 rural observations (24.1%) and 55,296 urban observations (75.9%). In 2015, the distribution remained very similar, with 17,692 rural (24.3%) and 55,172 urban (75.7%). In 2019, there were 17,362 rural (23.9%) and 55,169 urban (76.1%).
+The proportion of urban and rural areas has been relatively stable over the three time points. Urban areas consistently account for about three-quarters of the total, while rural areas make up about one-quarter. There is a small decrease in the number and proportion of rural observations in 2019 compared to 2010 and 2015, suggesting a modest trend toward urbanization. However, the change is minor (less than 1 percentage point). The data indicate that the urban-rural composition has not undergone substantial change over the decade, suggesting that any observed differences in outcomes over time are unlikely to be driven by large shifts in urbanization.
+
+
+To evaluate the distribution of the proportion of people with low food accessibility across the country, we use the varibale `LILATracts_1And10` indicating low income and low access tract measured at 1 mile for urban areas and 10 miles for rural areas.
+
+```{r}
+LILA_sumy <- df_combine %>%
+  group_by(year, Urban, LILATracts_1And10) %>%  
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(year, Urban) %>%                    
+  mutate(proportion = round(count / sum(count), 3)) %>%
+  ungroup()
+
+knitr::kable(LILA_sumy,caption = "The count and propostion of low income and low food accessibility separated by urban status in each year")
+
+```
+
+```{r fig.align="center"}
+ggplot(LILA_sumy, aes(x = factor(year), y = proportion, 
+                      fill = factor(LILATracts_1And10))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ Urban, labeller = labeller(Urban = c(`0` = "Non-Urban", `1` = "Urban"))) +
+  labs(x = "Year", y = "Proportion", fill = "Low Income",
+  caption = "Figure 2: Low Income Proportion and Low Food Accessibility by Year and Urban Status") +
+  theme_minimal()
+
+```
+
+
+
+From Table 2 and Figure 2, it is found in all three years, the proportion of low-income tracts (LILATracts_1And10 = 1) is consistently higher in urban areas (13.6%–14.4%) than in non-urban areas (7.6%–8.1%). This suggests that urban areas face slightly higher rates of low income combined with low food accessibility compared to non-urban areas. Across 2010, 2015, and 2019, the proportion of low-income tracts remains relatively stable within both urban and non-urban areas. The values are around 8% for non-urban areas and around 14% for urban areas. This indicates that over the decade, the disparity between urban and non-urban low-income food access has not changed substantially. In absolute numbers, urban areas have more low-income tracts due to higher population and tract density: e.g., in 2019, urban low-income tracts = 7,941 vs. non-urban = 1,352. The majority of tracts in both urban and non-urban areas are not classified as low-income low-access (LILATracts_1And10 = 0). Urban areas have roughly 1.7 times higher proportion of low-income low-access tracts than non-urban areas. The stable proportions suggest persistent structural challenges in food accessibility in both urban and non-urban settings.
+
+
+To evaluate the relationship between median family income and status of low income and low food acess, Table 3 and Figure 3 present the analysis results. 
+
+```{r}
+
+income_sumy<-df_combine %>% filter(year !="2010") %>% 
+  group_by(year,LILATracts_1And10) %>% 
+  summarise(mean_median=mean(MedianFamilyIncome,na.rm=TRUE),
+            sd_median=sd(MedianFamilyIncome,na.rm = TRUE))
+
+knitr::kable(income_sumy,caption = "Summary statistics of mkedian family income by low-income and low food access status (2015 & 2019)")
+
+```
+
+
+```{r fig.align="center"}
+ggplot(df_combine %>% filter(year !="2010"), aes(x = factor(LILATracts_1And10),
+               y = MedianFamilyIncome, fill = factor(LILATracts_1And10))) +
+  geom_boxplot() +
+  facet_wrap(~year)+
+  labs(x = "Low Income + Low Food Access Flag",
+       y = "Median Family Income",
+       fill = "low income + low food access",
+       caption = "Figure 3:Median Family Income by Low-Income and Low Food Access Status (2015 & 2019)") +
+  theme_minimal()+
+  theme(plot.caption = element_text(hjust = 0.5))
+                 
+```
+
+Across both years, tracts classified as low-income and low-access exhibited substantially lower median family incomes than their counterparts. In 2015, non-flagged tracts had a mean median income of $70,859 (SD = $34,795), compared to $43,847 (SD = $13,754) in flagged tracts. In 2019, these averages increased to $81,167 (SD = $38,124) and $48,982 (SD = $14,437), respectively, indicating income growth over time for both groups. However, the absolute income gap widened slightly—from approximately $27,000 in 2015 to over $32,000 in 2019—suggesting that economic gains were not evenly distributed. The boxplots illustrate this disparity visually: the distribution of incomes in flagged tracts is consistently shifted downward, with narrower interquartile ranges and fewer high-income outliers compared to non-flagged tracts. Overall, the results demonstrate a persistent and widening socioeconomic divide between areas with and without low food access, underscoring the structural nature of income-related food accessibility challenges.
+
